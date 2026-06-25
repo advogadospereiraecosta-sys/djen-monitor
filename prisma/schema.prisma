@@ -1,0 +1,235 @@
+// ===========================================
+// DJEN Monitor - Prisma Schema
+// ===========================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===========================================
+// Enums
+// ===========================================
+
+enum LawyerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum UrgencyLevel {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+  WEBHOOK
+  SMS
+}
+
+// ===========================================
+// Models
+// ===========================================
+
+// Advogado monitorado no sistema
+model Lawyer {
+  id          String        @id @default(cuid())
+  oabNumber   String
+  oabState    String
+  name        String
+  email       String?
+  phone       String?
+  status      LawyerStatus  @default(ACTIVE)
+  // Indica se o advogado tem prazo em dobro (Fazenda, Defensoria, INSS, Uniao)
+  doubleTerm  Boolean       @default(false)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  searches    LawyerSearch[]
+  publications Publication[]
+
+  @@unique([oabNumber, oabState])
+  @@map("lawyers")
+}
+
+// Configuracao de busca para um advogado
+model LawyerSearch {
+  id          String    @id @default(cuid())
+  lawyerId    String
+  lawyer      Lawyer    @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  // CNJ number, CPF, etc.
+  query       String
+  // 'OAB', 'CNJ', 'CPF'
+  searchType  String
+  // DAILY, WEEKLY
+  frequency   String    @default("DAILY")
+  active      Boolean   @default(true)
+  lastRunAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("lawyer_searches")
+}
+
+// Publicacao encontrada no DJEN
+model Publication {
+  id                  String        @id @default(cuid())
+
+  // Identificacao
+  cnjNumber           String?
+  // ID da CNJ Comunica API
+  sourceId            String
+  source              String        @default("DJEN")
+  // ID unico da fonte
+  sourceRef           String
+
+  // Conteudo
+  // Data disponibilizacao no DJEN
+  publicationDate     DateTime
+  // Data da consulta
+  consultationDate    DateTime?
+  // Tipo do ato processual
+  actType             String
+  // Descricao completa do ato
+  actDescription      String        @db.Text
+  // Orgao julgador
+  courtName           String
+
+  // Classificacao
+  urgencyLevel        UrgencyLevel
+  // false = mero expediente (nao gera prazo)
+  generatesDeadline   Boolean       @default(true)
+  // "CPC 335", "CPC 1.003 paragrafo 5", etc.
+  legalBasis          String?
+  // true se eh para parte com direito a prazo em dobro
+  hasDoubleTerm       Boolean       @default(false)
+
+  // Prazos calculados
+  // Prazo base em dias uteis
+  baseDeadlineDays    Int?
+  // Data fatal do prazo
+  fatalDeadline       DateTime?
+  // Ciencia ficta: publicacaoDate + 10 dias uteis (CPC 231)
+  fictionalDate       DateTime?
+  // Data de alerta antecipado (fatalDeadline - 3 dias uteis)
+  warningDate         DateTime?
+
+  // Metadata
+  // JSON completo da API
+  raw                 Json?
+
+  // Relacionamentos
+  lawyerId            String
+  lawyer              Lawyer        @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  notifications       Notification[]
+
+  // Se foi sincronizado com o Juris Agenda
+  syncedToJurisAgenda Boolean       @default(false)
+  syncedAt            DateTime?
+  // ID no Juris Agenda
+  jurisAgendaId       String?
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@unique([source, sourceRef])
+  @@index([cnjNumber])
+  @@index([publicationDate])
+  @@index([urgencyLevel])
+  @@index([fatalDeadline])
+  @@map("publications")
+}
+
+// Notificacao a ser/enviada
+model Notification {
+  id              String              @id @default(cuid())
+  publicationId   String
+  publication     Publication         @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  channel         NotificationChannel
+  // phone, email, url
+  recipient       String
+  status          NotificationStatus  @default(PENDING)
+
+  subject         String?
+  message         String              @db.Text
+
+  attempts        Int                 @default(0)
+  lastAttemptAt   DateTime?
+  errorMessage    String?
+
+  sentAt          DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([status])
+  @@map("notifications")
+}
+
+// Log de execucao de jobs cron
+model CronJob {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  // RUNNING, SUCCESS, FAILED
+  status      String
+  errorMessage String?  @db.Text
+  // milliseconds
+  duration    Int?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("cron_jobs")
+}
+
+// Feriados para calculo de prazos
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  name      String
+  // UF (null = nacional)
+  state     String?
+  // NACIONAL, ESTADUAL, MUNICIPAL
+  type      String   @default("NACIONAL")
+
+  @@map("holidays")
+}
+
+// Eventos de webhook enviados
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  // publication.created, notification.sent
+  event       String
+  url         String
+  payload     Json
+  // SUCCESS, FAILED
+  status      String
+  statusCode  Int?
+  response    String?   @db.Text
+  attempts    Int       @default(0)
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([event])
+  @@map("webhook_events")
+}

@@ -1,0 +1,57 @@
+{
+  "name": "djen-monitor",
+  "version": "1.0.0",
+  "description": "Monitoramento automatizado do DJEN - Diário de Justiça Eletrônico Nacional",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc && prisma generate",
+    "start": "node dist/server.js",
+    "postinstall": "prisma generate || true",
+    "cron:daily": "node dist/index.js cron daily",
+    "cron:notify": "node dist/index.js cron notify",
+    "cron:holidays": "node dist/index.js cron holidays",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "keywords": [
+    "djen",
+    "diario-justico",
+    "monitoramento",
+    "advocacia",
+    "cnpj"
+  ],
+  "author": "Juris Agenda",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "axios": "^1.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "helmet": "^8.0.0",
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.11.0",
+    "dotenv": "^16.4.5",
+    "prisma": "^7.8.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
