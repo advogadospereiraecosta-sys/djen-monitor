@@ -428,18 +428,42 @@ app.use((req: Request, res: Response) => {
 let server: ReturnType<typeof app.listen> | null = null;
 
 export async function startServer(): Promise<void> {
+  console.log('[START] Validando conexao com banco...');
+
+  try {
+    // Tenta conectar ao banco antes de subir o servidor
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('DB connection timeout (10s)')), 10000)
+      ),
+    ]);
+    console.log('[START] Banco conectado com sucesso');
+  } catch (dbError) {
+    console.error('[START] ERRO ao conectar no banco:', dbError);
+    console.error('[START] DATABASE_URL:', process.env.DATABASE_URL ? 'configured' : 'MISSING');
+    throw dbError;
+  }
+
   return new Promise((resolve) => {
     server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`[START] DJEN Monitor API listening on http://0.0.0.0:${PORT}`);
+      console.log(`[START] Health check: http://0.0.0.0:${PORT}/health`);
       logger.info({ port: PORT, env: NODE_ENV }, 'DJEN Monitor API started');
       console.log(`DJEN Monitor API running on http://0.0.0.0:${PORT}`);
       console.log(`Health check: http://0.0.0.0:${PORT}/health`);
 
       // Inicia scheduler
       if (NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
+        console.log('[START] Iniciando scheduler...');
         startScheduler();
       }
 
       resolve();
+    });
+
+    server.on('error', (err) => {
+      console.error('[START] Server error:', err);
     });
   });
 }
@@ -485,10 +509,22 @@ process.on('SIGINT', async () => {
 // ===========================================
 
 if (process.argv[1] && process.argv[1].endsWith('server.ts')) {
-  startServer().catch((error) => {
-    logger.error({ error }, 'Failed to start server');
-    process.exit(1);
-  });
+  // Log inicial para Railway capturar
+  console.log('[STARTUP] DJEN Monitor starting...');
+  console.log('[STARTUP] PORT:', PORT);
+  console.log('[STARTUP] NODE_ENV:', NODE_ENV);
+  console.log('[STARTUP] DATABASE_URL present:', !!process.env.DATABASE_URL);
+  console.log('[STARTUP] PWD:', process.cwd());
+
+  startServer()
+    .then(() => {
+      console.log('[STARTUP] DJEN Monitor started successfully');
+    })
+    .catch((error) => {
+      console.error('[STARTUP] Failed to start:', error);
+      logger.error({ error }, 'Failed to start server');
+      process.exit(1);
+    });
 }
 
 export default app;
