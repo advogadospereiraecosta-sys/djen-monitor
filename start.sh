@@ -1,44 +1,58 @@
-#!/bin/sh
+#!/bin/bash
 # DJEN Monitor - Startup script
 # Logs detalhados antes de iniciar o node
+
+set +e  # Nao para em erros para vermos tudo
 
 echo "==========================================="
 echo "  DJEN Monitor - Startup Wrapper"
 echo "==========================================="
-echo "Date: $(date)"
+echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "PWD: $(pwd)"
 echo "User: $(whoami)"
-echo "Node: $(node --version)"
-echo "PORT: ${PORT:-not set}"
-echo "NODE_ENV: ${NODE_ENV:-not set}"
-echo "DATABASE_URL: ${DATABASE_URL:+configured (hidden)}"
-echo "DATABASE_URL length: ${#DATABASE_URL}"
+echo "Node: $(node --version 2>&1 || echo 'node not found')"
+echo "Bash: ${BASH_VERSION}"
+echo ""
+echo "ENV VARS:"
+echo "  PORT: ${PORT:-NOT SET}"
+echo "  NODE_ENV: ${NODE_ENV:-NOT SET}"
+echo "  LOG_LEVEL: ${LOG_LEVEL:-NOT SET}"
+echo "  DATABASE_URL: ${DATABASE_URL:+configured}"
+echo "  DATABASE_URL length: ${#DATABASE_URL}"
+echo "  ENABLE_CRON: ${ENABLE_CRON:-NOT SET}"
 echo "==========================================="
 echo ""
 
-# Verifica se dist/server.js existe
-echo "[WRAPPER] Verifying dist/server.js..."
-if [ -f "dist/server.js" ]; then
-  echo "[WRAPPER] dist/server.js OK ($(stat -c%s dist/server.js) bytes)"
+echo "[WRAPPER] Listing /app contents:"
+ls -la /app 2>&1 || echo "Cannot list /app"
+echo ""
+
+echo "[WRAPPER] Checking dist/server.js:"
+if [ -f "/app/dist/server.js" ]; then
+  echo "[WRAPPER] /app/dist/server.js OK ($(stat -c%s /app/dist/server.js) bytes)"
 else
-  echo "[WRAPPER] FATAL: dist/server.js NOT FOUND"
-  echo "[WRAPPER] dist/ contents:"
-  ls -la dist/
+  echo "[WRAPPER] FATAL: /app/dist/server.js NOT FOUND"
   exit 1
 fi
 echo ""
 
-# Verifica node_modules
-echo "[WRAPPER] Verifying node_modules..."
-if [ -d "node_modules" ]; then
-  echo "[WRAPPER] node_modules OK"
+echo "[WRAPPER] Checking node_modules:"
+if [ -d "/app/node_modules" ]; then
+  echo "[WRAPPER] /app/node_modules OK ($(ls /app/node_modules | wc -l) packages)"
 else
-  echo "[WRAPPER] FATAL: node_modules NOT FOUND"
+  echo "[WRAPPER] FATAL: /app/node_modules NOT FOUND"
   exit 1
 fi
 echo ""
 
-# Inicia o servidor
-echo "[WRAPPER] Starting node dist/server.js..."
+echo "[WRAPPER] Checking prisma client:"
+if [ -d "/app/node_modules/.prisma/client" ]; then
+  echo "[WRAPPER] Prisma client OK"
+else
+  echo "[WRAPPER] WARNING: Prisma client not found"
+fi
+echo ""
+
+echo "[WRAPPER] Executing: node dist/server.js"
 echo "==========================================="
-exec node dist/server.js 2>&1
+exec node /app/dist/server.js 2>&1
