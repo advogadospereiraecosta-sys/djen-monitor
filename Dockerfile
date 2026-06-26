@@ -1,6 +1,6 @@
 # ===========================================
-# DJEN Monitor - Dockerfile Final
-# Logs inline no CMD para Railway capturar
+# DJEN Monitor - Dockerfile Simplificado
+# Railway - sem healthcheck no Dockerfile (Railway usa o do railway.toml)
 # ===========================================
 
 # Stage 1: Build
@@ -52,8 +52,5 @@ USER nodejs
 
 EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-3001}/health || exit 1
-
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["bash", "-c", "echo '=== DJEN MONITOR STARTING ===' && echo 'PORT=$PORT' && echo 'NODE_ENV=$NODE_ENV' && echo 'DATABASE_URL set: '$(test -n \"$DATABASE_URL\" && echo yes || echo no) && echo 'PWD='$(pwd) && echo 'User='$(whoami) && echo 'Files:' && ls -la && echo 'Dist files:' && ls -la dist/ && echo '=== EXECUTING NODE ===' && exec node dist/server.js"]
+CMD ["node", "dist/server.js"]
