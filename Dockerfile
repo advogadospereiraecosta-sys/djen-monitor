@@ -1,6 +1,6 @@
 # ===========================================
-# DJEN Monitor - Dockerfile com start.sh wrapper
-# Para Railway - captura todos os logs do startup
+# DJEN Monitor - Dockerfile Final
+# Logs inline no CMD para Railway capturar
 # ===========================================
 
 # Stage 1: Build
@@ -45,14 +45,6 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nodejs:nodejs /app/prisma.config.ts ./
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/start.sh ./
-
-RUN chmod +x /app/start.sh
-
-RUN echo "=== Production stage ===" && \
-    ls -la && \
-    echo "=== dist/ ===" && \
-    ls -la dist/
 
 RUN npm prune --omit=dev 2>&1 || echo "Prune warning - continuing"
 
@@ -64,4 +56,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-3001}/health || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/app/start.sh"]
+CMD ["bash", "-c", "echo '=== DJEN MONITOR STARTING ===' && echo 'PORT=$PORT' && echo 'NODE_ENV=$NODE_ENV' && echo 'DATABASE_URL set: '$(test -n \"$DATABASE_URL\" && echo yes || echo no) && echo 'PWD='$(pwd) && echo 'User='$(whoami) && echo 'Files:' && ls -la && echo 'Dist files:' && ls -la dist/ && echo '=== EXECUTING NODE ===' && exec node dist/server.js"]
