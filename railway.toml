@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "echo '=== DJEN MONITOR STARTING ===' && echo 'PORT='$PORT && echo 'NODE_ENV='$NODE_ENV && echo 'DATABASE_URL set: '$(test -n \"$DATABASE_URL\" && echo yes || echo no) && echo 'PWD='$(pwd) && echo 'User='$(whoami) && echo 'Files:' && ls -la && echo '=== EXECUTING NODE ===' && exec node dist/server.js"
+startCommand = "bash -c 'echo STARTING_DJEN_MONITOR; echo PORT=$PORT; echo DATABASE_URL_LEN=${#DATABASE_URL}; echo PWD=$(pwd); echo WHOAMI=$(whoami); ls -la; ls -la dist/ 2>&1; exec node dist/server.js 2>&1 | tee /tmp/runtime.log'"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
