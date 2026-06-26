@@ -86,7 +86,7 @@ app.get('/health', async (req: Request, res: Response) => {
     }
 
     // Verifica status dos jobs
-    let jobs = { scheduled: 0, running: false };
+    let jobs: any = { scheduled: 0, running: false };
     try {
       jobs = getJobsStatus();
     } catch (jobError) {
